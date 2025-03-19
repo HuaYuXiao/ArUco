@@ -1,29 +1,17 @@
 /**
-Copyright 2017 Rafael Muñoz Salinas. All rights reserved.
+Copyright 2020 Rafael Muñoz Salinas. All rights reserved.
 
-Redistribution and use in source and binary forms, with or without modification, are
-permitted provided that the following conditions are met:
+  This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation version 3 of the License.
 
-   1. Redistributions of source code must retain the above copyright notice, this list of
-      conditions and the following disclaimer.
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
 
-   2. Redistributions in binary form must reproduce the above copyright notice, this list
-      of conditions and the following disclaimer in the documentation and/or other materials
-      provided with the distribution.
-
-THIS SOFTWARE IS PROVIDED BY Rafael Muñoz Salinas ''AS IS'' AND ANY EXPRESS OR IMPLIED
-WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
-FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Rafael Muñoz Salinas OR
-CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
-ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
-ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-The views and conclusions contained in the software and documentation are those of the
-authors and should not be interpreted as representing official policies, either expressed
-or implied, of Rafael Muñoz Salinas.
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 #include <algorithm>
@@ -201,8 +189,14 @@ int main(int argc, char** argv)
         vector<cv::Mat> vr, vt;
         camp.CamSize = imageSize;
         cout << calib_p2d.size() << endl;
-        cv::calibrateCamera(calib_p3d, calib_p2d, imageSize, camp.CameraMatrix, camp.Distorsion, vr, vt);
+        int flags=0;
+        //        minimal calibration params
+        //        flags=cv::CALIB_FIX_K2|cv::CALIB_FIX_K3|cv::CALIB_FIX_K4|cv::CALIB_FIX_K5|cv::CALIB_FIX_K6|cv::CALIB_ZERO_TANGENT_DIST|cv::CALIB_FIX_PRINCIPAL_POINT|cv::CALIB_FIX_ASPECT_RATIO ;
+        //        camp.Distorsion=cv::Mat::zeros(5,1,CV_32F);
 
+
+        double rms=  cv::calibrateCamera(calib_p3d, calib_p2d, imageSize, camp.CameraMatrix, camp.Distorsion, vr, vt,flags);
+        cout<<"RMS="<<rms<<endl;
         //compute the average reprojection error
         std::pair<double,int> sum={0,0};
         for(size_t v=0;v<calib_p2d.size();v++){
@@ -215,23 +209,21 @@ int main(int argc, char** argv)
         }
         cerr << "repj error=" << sum.first/double(sum.second) << endl;
 
-
-
         camp.saveToFile(TheOutFile);
         
-        cerr << "File saved in :" << TheOutFile << endl;
+     //   cerr << "File saved in :" << TheOutFile << endl;
         //print locations
-        cout<<"TYPE="<<(vr[0].type()==CV_64F)<<endl;
-        cout<<	"std::vector<cv::Mat> vr;"<<endl;
+     //   cout<<"TYPE="<<(vr[0].type()==CV_64F)<<endl;
+       // cout<<	"std::vector<cv::Mat> vr;"<<endl;
         for(size_t i=0;i<vr.size();i++){
 			double *ptr=vr[i].ptr<double>(0);
-			cout<<"rv.push_back( (cv::Mat_<double>(3,1) << "<<ptr[0]<< ","<<ptr[1]<<","<<ptr[2]<<"));"<<endl;
+            //cout<<"rv.push_back( (cv::Mat_<double>(3,1) << "<<ptr[0]<< ","<<ptr[1]<<","<<ptr[2]<<"));"<<endl;
 		}
 		
         cout<<	"std::vector<cv::Mat> vt;"<<endl;
         for(size_t i=0;i<vr.size();i++){
 			double *ptr=vt[i].ptr<double>(0);
-			cout<<"vt.push_back( (cv::Mat_<double>(3,1) << "<<ptr[0]<< ","<<ptr[1]<<","<<ptr[2]<<"));"<<endl;
+            //cout<<"vt.push_back( (cv::Mat_<double>(3,1) << "<<ptr[0]<< ","<<ptr[1]<<","<<ptr[2]<<"));"<<endl;
 		}
     }
     catch (std::exception& ex)

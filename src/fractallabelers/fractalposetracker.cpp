@@ -45,20 +45,159 @@ namespace aruco {
         }
         float thresoldResp = (maxResp - minResp) * 0.20f + minResp;
 
-        //Erase kepoints with low response (20%)
-        for (uint32_t i=0;i< kpoints.size(); i++)
-            if(kpoints[i].response < thresoldResp){
-                kpoints.erase(kpoints.begin()+i);
-                i--;
+        for(uint32_t xi=0; xi<kpoints.size();xi++)
+        {
+            //Erase keypoints with low response (20%)
+            if(kpoints[xi].response < thresoldResp){
+                kpoints[xi].size=-1;
+                continue;
             }
 
-        //Duplicated keypoints (closer)
-        for(uint32_t xi=0; xi<kpoints.size();xi++)
+            //Duplicated keypoints (closer)
             for(uint32_t xj=xi+1; xj<kpoints.size();xj++)
             {
                 if(pow(kpoints[xi].pt.x - kpoints[xj].pt.x,2) + pow(kpoints[xi].pt.y - kpoints[xj].pt.y,2) < 200)
-                    kpoints.erase(kpoints.begin()+xj--);
+                {
+                    if(kpoints[xj].response > kpoints[xi].response)
+                        kpoints[xi] = kpoints[xj];
+
+                    kpoints[xj].size=-1;
+                }
             }
+        }
+        kpoints.erase(std::remove_if(kpoints.begin(),kpoints.end(), [](const cv::KeyPoint &kpt){return kpt.size==-1;}), kpoints.end());
+    }
+
+    void assignClass(const cv::Mat &im, std::vector<cv::KeyPoint>& kpoints, float sizeNorm, int wsize)
+    {
+        if(im.type()!=CV_8UC1)
+            throw std::runtime_error("assignClass Input image must be 8UC1");
+        int wsizeFull=wsize*2+1;
+
+        cv::Mat labels = cv::Mat::zeros(wsize*2+1,wsize*2+1,CV_8UC1);
+        cv::Mat thresIm=cv::Mat(wsize*2+1,wsize*2+1,CV_8UC1);
+
+        for(auto &kp:kpoints)
+        {
+            float x = kp.pt.x;
+            float y = kp.pt.y;
+
+            //Convert point range from norm (-size/2, size/2) to (0,imageSize)
+            if(sizeNorm>0){
+//                x = im.cols * (x/_fractalMarker.getFractalSize() + 0.5f);
+//                y = im.rows * (-y/_fractalMarker.getFractalSize() + 0.5f);
+                x = im.cols * (x/sizeNorm + 0.5f);
+                y = im.rows * (-y/sizeNorm + 0.5f);
+            }
+
+            x= int(x+0.5f);
+            y= int(y+0.5f);
+
+            cv::Rect r= cv::Rect(x-wsize,y-wsize,wsize*2+1,wsize*2+1);
+            //Check boundaries
+            if(r.x<0 || r.x+r.width>im.cols || r.y<0 ||
+                    r.y+r.height>im.rows) continue;
+
+            int endX=r.x+r.width;
+            int endY=r.y+r.height;
+            uchar minV=255,maxV=0;
+            for(int y=r.y; y<endY; y++){
+                const uchar *ptr=im.ptr<uchar>(y);
+                for(int x=r.x; x<endX; x++)
+                {
+                    if(minV>ptr[x]) minV=ptr[x];
+                    if(maxV<ptr[x]) maxV=ptr[x];
+                }
+            }
+
+            if ((maxV-minV) < 25) {
+                kp.class_id=0;
+                continue;
+            }
+
+            double thres=(maxV+minV)/2.0;
+
+            unsigned int nZ=0;
+            //count non zero considering the threshold
+            for(int y=0; y<wsizeFull; y++){
+                const uchar *ptr=im.ptr<uchar>( r.y+y)+r.x;
+                uchar *thresPtr= thresIm.ptr<uchar>(y);
+                for(int x=0; x<wsizeFull; x++){
+                    if( ptr[x]>thres) {
+                        nZ++;
+                        thresPtr[x]=255;
+                    }
+                    else thresPtr[x]=0;
+                }
+            }
+            //set all to zero labels.setTo(cv::Scalar::all(0));
+            for(int y=0; y<thresIm.rows; y++){
+                uchar *labelsPtr=labels.ptr<uchar>(y);
+                for(int x=0; x<thresIm.cols; x++) labelsPtr[x]=0;
+            }
+
+            uchar newLab = 1;
+            std::map<uchar, uchar> unions;
+            for(int y=0; y<thresIm.rows; y++){
+                uchar *thresPtr=thresIm.ptr<uchar>(y);
+                uchar *labelsPtr=labels.ptr<uchar>(y);
+                for(int x=0; x<thresIm.cols; x++)
+                {
+                    uchar reg = thresPtr[x];
+                    uchar lleft_px = 0;
+                    uchar ltop_px = 0;
+
+                    if(x-1 > -1)
+                    {
+                        if(reg == thresPtr[x-1])
+                            lleft_px =labelsPtr[x-1];
+                    }
+
+                    if(y-1 > -1)
+                    {
+                        if(reg ==thresIm.ptr<uchar>(y-1) [x]
+                                )//thresIm.at<uchar>(y-1, x)
+                            ltop_px =  labels.at<uchar>(y-1, x);
+                    }
+
+                    if(lleft_px==0 && ltop_px==0)
+                        labelsPtr[x] = newLab++;
+
+                    else if(lleft_px!=0 && ltop_px!=0)
+                    {
+                        if(lleft_px < ltop_px)
+                        {
+                            labelsPtr[x]  = lleft_px;
+                            unions[ltop_px] = lleft_px;
+                        }
+                        else if(lleft_px > ltop_px)
+                        {
+                            labelsPtr[x]  = ltop_px;
+                            unions[lleft_px] = ltop_px;
+                        }
+                        else
+                        {//IGuales
+                            labelsPtr[x]  = ltop_px;
+                        }
+                    }
+                    else
+                    {
+                        if(lleft_px!=0) labelsPtr[x]  = lleft_px;
+                        else labelsPtr[x]  = ltop_px;
+                    }
+                }
+            }
+
+            int nc= newLab-1 - unions.size();
+            if(nc==2)
+            {
+                if(nZ > thresIm.total()-nZ) kp.class_id = 0;
+                else kp.class_id = 1;
+            }
+            else if (nc > 2) {
+                kp.class_id = 2;
+            }
+        }
     }
 
     FractalPoseTracker::FractalPoseTracker()
@@ -106,7 +245,7 @@ namespace aruco {
 
         //Get synthetic image (pixsize 6 in order to get inner corners classification)
         cv::Mat imageGray = _fractalMarker.getFractalMarkerImage(6) * 255;
-        assignClass(imageGray, _innerkpoints, true);
+        assignClass(imageGray, _innerkpoints, _fractalMarker.getFractalSize());
         _kdtree.build(_innerkpoints);
 
 //        #define _fractal_debug_classification
@@ -826,135 +965,5 @@ namespace aruco {
 //        imshow("KPoints", out);
 //        cv::waitKey();
 //#endif
-    }
-
-    void FractalPoseTracker::assignClass(const cv::Mat &im, std::vector<cv::KeyPoint>& kpoints, bool transf, int wsize)
-    {
-        if(im.type()!=CV_8UC1)
-            throw std::runtime_error("assignClass Input image must be 8UC1");
-        int wsizeFull=wsize*2+1;
-
-        cv::Mat labels = cv::Mat::zeros(wsize*2+1,wsize*2+1,CV_8UC1);
-        cv::Mat thresIm=cv::Mat(wsize*2+1,wsize*2+1,CV_8UC1);
-
-        for(auto &kp:kpoints)
-        {
-            float x = kp.pt.x;
-            float y = kp.pt.y;
-
-            //Convert point range from norm (-size/2, size/2) to (0,imageSize)
-            if(transf){
-                x = im.cols * (x/_fractalMarker.getFractalSize() + 0.5f);
-                y = im.rows * (-y/_fractalMarker.getFractalSize() + 0.5f);
-            }
-
-            x= int(x+0.5f);
-            y= int(y+0.5f);
-
-            cv::Rect r= cv::Rect(x-wsize,y-wsize,wsize*2+1,wsize*2+1);
-            //Check boundaries
-            if(r.x<0 || r.x+r.width>im.cols || r.y<0 ||
-                    r.y+r.height>im.rows) continue;
-
-            int endX=r.x+r.width;
-            int endY=r.y+r.height;
-            uchar minV=255,maxV=0;
-            for(int y=r.y; y<endY; y++){
-                const uchar *ptr=im.ptr<uchar>(y);
-                for(int x=r.x; x<endX; x++)
-                {
-                    if(minV>ptr[x]) minV=ptr[x];
-                    if(maxV<ptr[x]) maxV=ptr[x];
-                }
-            }
-
-            if ((maxV-minV) < 25) {
-                kp.class_id=0;
-                continue;
-            }
-
-            double thres=(maxV+minV)/2.0;
-
-            unsigned int nZ=0;
-            //count non zero considering the threshold
-            for(int y=0; y<wsizeFull; y++){
-                const uchar *ptr=im.ptr<uchar>( r.y+y)+r.x;
-                uchar *thresPtr= thresIm.ptr<uchar>(y);
-                for(int x=0; x<wsizeFull; x++){
-                    if( ptr[x]>thres) {
-                        nZ++;
-                        thresPtr[x]=255;
-                    }
-                    else thresPtr[x]=0;
-                }
-            }
-            //set all to zero labels.setTo(cv::Scalar::all(0));
-            for(int y=0; y<thresIm.rows; y++){
-                uchar *labelsPtr=labels.ptr<uchar>(y);
-                for(int x=0; x<thresIm.cols; x++) labelsPtr[x]=0;
-            }
-
-            uchar newLab = 1;
-            std::map<uchar, uchar> unions;
-            for(int y=0; y<thresIm.rows; y++){
-                uchar *thresPtr=thresIm.ptr<uchar>(y);
-                uchar *labelsPtr=labels.ptr<uchar>(y);
-                for(int x=0; x<thresIm.cols; x++)
-                {
-                    uchar reg = thresPtr[x];
-                    uchar lleft_px = 0;
-                    uchar ltop_px = 0;
-
-                    if(x-1 > -1)
-                    {
-                        if(reg == thresPtr[x-1])
-                            lleft_px =labelsPtr[x-1];
-                    }
-
-                    if(y-1 > -1)
-                    {
-                        if(reg ==thresIm.ptr<uchar>(y-1) [x]
-                                )//thresIm.at<uchar>(y-1, x)
-                            ltop_px =  labels.at<uchar>(y-1, x);
-                    }
-
-                    if(lleft_px==0 && ltop_px==0)
-                        labelsPtr[x] = newLab++;
-
-                    else if(lleft_px!=0 && ltop_px!=0)
-                    {
-                        if(lleft_px < ltop_px)
-                        {
-                            labelsPtr[x]  = lleft_px;
-                            unions[ltop_px] = lleft_px;
-                        }
-                        else if(lleft_px > ltop_px)
-                        {
-                            labelsPtr[x]  = ltop_px;
-                            unions[lleft_px] = ltop_px;
-                        }
-                        else
-                        {//IGuales
-                            labelsPtr[x]  = ltop_px;
-                        }
-                    }
-                    else
-                    {
-                        if(lleft_px!=0) labelsPtr[x]  = lleft_px;
-                        else labelsPtr[x]  = ltop_px;
-                    }
-                }
-            }
-
-            int nc= newLab-1 - unions.size();
-            if(nc==2)
-            {
-                if(nZ > thresIm.total()-nZ) kp.class_id = 0;
-                else kp.class_id = 1;
-            }
-            else if (nc > 2) {
-                kp.class_id = 2;
-            }
-        }
     }
 }

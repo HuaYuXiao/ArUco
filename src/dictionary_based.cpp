@@ -122,23 +122,28 @@ namespace aruco
                 if (_max_correction_rate > 0)
                 {  // find distance to map elements
                     int _maxCorrectionAllowed = static_cast<int>( static_cast<float>(dic->tau()) * _max_correction_rate);
+
+                    int min_dist = 100000000;
+                    bool found = false;
                     for (auto ci : dic->getMapCode())
                     {
                         for (int i = 0; i < 4; i++)
                         {
-                            if (hamm_distance(ci.first, ids[i]) < _maxCorrectionAllowed)
+                            int curr_dist = hamm_distance(ci.first, ids[i]);
+                            if (curr_dist < _maxCorrectionAllowed && curr_dist < min_dist)
                             {
+                                found = true;
+                                min_dist = curr_dist;
                                 marker_id = ci.second;
                                 nRotations = i;
                                 additionalInfo=dic->getName();
-                                return true;
                             }
                         }
                     }
+                    return found;
                 }
 
             }
-
 
         }
 

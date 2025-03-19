@@ -3,7 +3,6 @@
 #include "levmarq.h"
 #include "ippe.h"
 #include "dictionary_based.h"
-#include <opencv2/video/tracking.hpp>
 #include "dcf_utils.h"
 #include <opencv2/imgproc/imgproc.hpp>
 #include "aruco_cvversioning.h"

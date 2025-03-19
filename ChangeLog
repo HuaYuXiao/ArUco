@@ -1,3 +1,5 @@
+Version 3.1.13
+-set ARUCO_MIP_36h12 as default dictionary
 Version 3.1.12
 - Added DCF tracking (see https://www.uco.es/investiga/grupos/ava/node/69)
 Version 3.1.11

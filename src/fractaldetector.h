@@ -1,3 +1,19 @@
+/**
+Copyright 2020 Rafael Muñoz Salinas. All rights reserved.
+
+  This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation version 3 of the License.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
 #ifndef _ARUCO_FractalDetector_H
 #define _ARUCO_FractalDetector_H
 
@@ -36,13 +52,13 @@ namespace aruco {
         {
             _cam_params = cam_params;
 
-            Tracker.setParams(cam_params, getConfiguration(), markerSize);
+            Tracker.setParams(cam_params, _fractalLabeler->_fractalMarkerSet, markerSize);
         }
 
         // return fractalmarkerset
         FractalMarkerSet getConfiguration()
         {
-            return _fractalLabeler->_fractalMarkerSet;
+            return Tracker.getFractal();
         }
 
         // return true if any marker is detected, false otherwise
@@ -94,12 +110,12 @@ namespace aruco {
             return Markers;
         }
 
- private:
         // return image pyramid
         std::vector<cv::Mat> getImagePyramid()
         {
             return _markerDetector->getImagePyramid();
         }
+    private:
 
         std::vector<aruco::Marker> Markers; //detected markers
         FractalPoseTracker Tracker;

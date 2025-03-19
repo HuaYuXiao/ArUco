@@ -67,10 +67,11 @@ namespace aruco {
 
         //Update markers
         std::map<int, cv::Ptr<TrackerImpl>>::iterator it;
-        for(it=mapMultiTracker.begin(); it!=mapMultiTracker.end(); ++it)
+        for(it=mapMultiTracker.begin(); it!=mapMultiTracker.end(); )
         {
             if(!it->second->updateImpl(grey, thresh_confidence))
-                mapMultiTracker.erase(it);
+                it=mapMultiTracker.erase(it);
+           else it++;
         }
 
         Timer.add("DCF_Update");

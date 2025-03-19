@@ -5,6 +5,20 @@
 #include "fractalmarkerset.h"
 #include "aruco_export.h"
 namespace aruco {
+
+
+    void kfilter(std::vector<cv::KeyPoint> &kpoints);
+
+    /** classification of the corners
+     * @brief assignClass
+     * @param im image used in the classification
+     * @param kpoints to classify
+     * @param sizeNorm. Is it necessary to transform keypoints? When keypoints have as reference the center of image(0,0),
+     * it is necessary to provide the fractal marker size
+     * @param wsize. Window size
+     */
+    void assignClass(const cv::Mat &im, std::vector<cv::KeyPoint>& kpoints, float sizeNorm=0.f, int wsize=5);
+
     struct PicoFlann_KeyPointAdapter{
         inline  float operator( )(const cv::KeyPoint &elem, int dim)const { return dim==0?elem.pt.x:elem.pt.y; }
        inline  float operator( )(const cv::Point2f &elem, int dim)const { return dim==0?elem.x:elem.y; }
@@ -39,14 +53,6 @@ namespace aruco {
          * @param ratio selected scaling factor
          */
         bool ROI(const std::vector<cv::Mat> imagePyramid, cv::Mat &img, std::vector<cv::Point2f> &innerPoints2d, cv::Point2f &offset, float &ratio);
-        /**     classification of the corners of the marker
-         * @brief assignClass
-         * @param im image used in the classification
-         * @param kpoints to classify
-         * @param transf. Is it necessary to transform keypoints? (-MarkerSize/2 .. MarkerSize/2) to (0 .. ImageSize)
-         * @param wsize. Window size
-         */
-        void assignClass(const cv::Mat &im, std::vector<cv::KeyPoint>& kpoints, bool transf=false, int wsize=5);
 
         /**     estimate the pose of the fractal marker. Method case 2, paper.
          * @brief fractal_solve_ransac

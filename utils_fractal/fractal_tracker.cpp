@@ -88,7 +88,7 @@ int main(int argc, char** argv)
 
         int frameId = 0;
         char key = 0;
-        int waitTime=10;
+        int waitTime=0;
         do
         {
             std::cout << "\r\rFrameId: " << frameId++<<std::endl;

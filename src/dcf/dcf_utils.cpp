@@ -241,6 +241,10 @@ float getSubpixelValue(const cv::Mat &im_grey,const cv::Point2f &p){
          if (decpartY>0.5) tl=cv::Point(intpartX-1,intpartY);
          else tl=cv::Point(intpartX-1,intpartY-1);
      }
+     if(tl.x<0) tl.x=0;
+     if(tl.y<0) tl.y=0;
+     if(tl.x>=im_grey.cols)tl.x=im_grey.cols-1;
+     if(tl.y>=im_grey.cols)tl.y=im_grey.rows-1;
      return (1.f-decpartY)*(1.-decpartX)*float(im_grey.at<uchar>(tl.y,tl.x))+
         decpartX*(1-decpartY)*float(im_grey.at<uchar>(tl.y,tl.x+1))+
         (1-decpartX)*decpartY*float(im_grey.at<uchar>(tl.y+1,tl.x))+
